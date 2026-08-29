@@ -8,7 +8,7 @@
     <artifactId>java-burlap-reinforcement-learning</artifactId>
     <version>1.0.0</version>
     <name>Java BURLAP Reinforcement Learning</name>
-    <description>Q-learning benchmark in Java using the BURLAP reinforcement-learning library.</description>
+    <description>Q-learning and Value Iteration benchmark in Java using BURLAP.</description>
 
     <properties>
         <maven.compiler.release>17</maven.compiler.release>
@@ -56,7 +56,7 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.5.0</version>
                 <configuration>
-                    <mainClass>com.jorsacademy.burlap.BurlapQLearningBenchmark</mainClass>
+                    <mainClass>com.jorsacademy.burlap.BurlapExperimentComparison</mainClass>
                 </configuration>
             </plugin>
         </plugins>
