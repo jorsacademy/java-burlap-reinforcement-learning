@@ -1,12 +1,12 @@
 # Java BURLAP Reinforcement Learning
 
-A compact reinforcement-learning benchmark written in Java with [BURLAP](https://github.com/jmacglashan/burlap).
+A reproducible reinforcement-learning benchmark written in Java with [BURLAP](https://github.com/jmacglashan/burlap).
 
-The project trains a tabular Q-learning agent on BURLAP's classic 11x11 Four Rooms navigation domain, compares the learned behavior with a Value Iteration planner, and exports experiment data for inspection.
+The project trains tabular Q-learning agents on BURLAP's classic 11x11 Four Rooms navigation domain, evaluates learning across multiple deterministic random seeds, compares the results with a Value Iteration planner, and exports aggregate experiment data with uncertainty estimates.
 
 ## Why BURLAP
 
-BURLAP (Brown-UMBC Reinforcement Learning and Planning) is a Java library focused specifically on reinforcement learning, planning, MDPs, policies, state representations, and experiment tooling. This project uses BURLAP 3.0.1 from Maven Central.
+BURLAP (Brown-UMBC Reinforcement Learning and Planning) is a Java library focused on reinforcement learning, planning, MDPs, policies, state representations, and experiment tooling. This project uses BURLAP 3.0.1 from Maven Central.
 
 ## Problem
 
@@ -18,10 +18,36 @@ BURLAP (Brown-UMBC Reinforcement Learning and Planning) is a Java library focuse
 - Discount factor: `0.99`
 - Learning rate: `0.5`
 - Initial Q-value: `1.0`
-- Training episodes: `500`
+- Training episodes per seed: `500`
+- Independent Q-learning seeds: `20`
 - Maximum actions per episode: `500`
+- Learning-curve smoothing: 25-episode moving average
+- Uncertainty interval: approximate 95% confidence interval across seeds
 
-BURLAP's default GridWorld reward is a per-step cost. Therefore, lower episode length is better. Value Iteration provides a model-based planning reference while Q-learning must improve from experience.
+BURLAP's default GridWorld reward is a per-step cost. Lower episode length is therefore better. Value Iteration provides a model-based planning reference while Q-learning must improve from sampled experience.
+
+## Reproducibility
+
+BURLAP's mapped random generator is explicitly reseeded before every Q-learning run. The benchmark uses the deterministic seed sequence:
+
+```text
+202600, 202601, ..., 202619
+```
+
+Running the same code with the same BURLAP/JVM setup therefore reproduces the per-seed training trajectories. A JUnit test also checks that two runs using the same seed produce the same episode-length sequence.
+
+## Statistical benchmark
+
+A single stochastic RL run can look unusually good or bad. The default experiment therefore executes 20 independent Q-learning runs and reports:
+
+- mean first-50 episode length
+- mean last-50 episode length
+- percentage improvement from early to late training
+- across-seed standard deviation for the final 50-episode average
+- approximate 95% confidence interval for the final average
+- Value Iteration rollout length
+
+For every training episode, the learning curve aggregates each seed's 25-episode moving average. The plotted center line is the across-seed mean and the shaded region is the approximate 95% confidence interval.
 
 ## Run
 
@@ -35,29 +61,44 @@ mvn clean test
 mvn exec:java
 ```
 
-The default experiment prints Q-learning convergence statistics and the Value Iteration rollout length. It also creates:
+The default experiment generates:
 
 ```text
 results/learning-curve.csv
+results/seed-summary.csv
 results/learning-curve.svg
 ```
 
-The CSV contains the raw action count for every Q-learning episode plus a 25-episode moving average. The SVG plots that moving average and overlays the Value Iteration rollout as a planning baseline.
+`learning-curve.csv` contains episode-level aggregate statistics:
 
-Example output format:
+```text
+episode,mean_moving_average_25,std_dev,ci95_low,ci95_high,value_iteration_actions
+```
+
+`seed-summary.csv` contains one row per independent Q-learning run:
+
+```text
+seed,first_50_avg,last_50_avg,improvement_percent,best_episode_actions
+```
+
+`learning-curve.svg` plots the mean learning curve, its 95% confidence band, and the Value Iteration reference policy.
+
+Example console output:
 
 ```text
 BURLAP experiment: Q-Learning vs Value Iteration
-Q-learning first-50 average : ...
-Q-learning last-50 average  : ...
-Q-learning improvement      : ...%
-Q-learning best episode      : ...
+Independent Q-learning seeds : 20
+Episodes per seed            : 500
+Mean first-50 actions        : ...
+Mean last-50 actions         : ...
+Mean improvement             : ...%
+Last-50 across-seed SD       : ...
+Last-50 95% CI               : [..., ...]
 Value Iteration rollout      : ... actions
-CSV                           : results/learning-curve.csv
-Learning curve                : results/learning-curve.svg
+Aggregate CSV                : results/learning-curve.csv
+Per-seed CSV                 : results/seed-summary.csv
+Learning curve               : results/learning-curve.svg
 ```
-
-Q-learning exploration is stochastic, so exact training statistics can vary across runs. Value Iteration should consistently produce a short policy for the deterministic Four Rooms model.
 
 ## Project structure
 
@@ -78,12 +119,16 @@ Q-learning exploration is stochastic, so exact training statistics can vary acro
 
 ## Validation
 
-The repository contains JUnit tests and a GitHub Actions workflow. CI performs a full Maven verification and executes the full comparison experiment.
+GitHub Actions performs a full Maven verification and then executes the complete 20-seed benchmark. Tests verify bounded Q-learning execution, deterministic same-seed reproduction, input validation, and that Value Iteration solves the Four Rooms problem efficiently.
 
-Tests verify basic Q-learning execution and require Value Iteration to solve the Four Rooms problem in fewer than 100 actions. Exact Q-learning scores are intentionally not asserted because stochastic exploration would make such tests unnecessarily flaky.
+## Interpretation
+
+The Value Iteration result should be treated as a planning reference, not as a directly equivalent learner. It has access to the complete transition model. Q-learning is model-free and learns from interaction. The comparison therefore illustrates convergence toward an efficient policy rather than claiming identical information assumptions.
+
+The 95% interval is a normal-approximation confidence interval over independent seeds. With 20 runs it is substantially more informative than a single trajectory, but it is still an empirical uncertainty estimate rather than a formal guarantee.
 
 ## Reference
 
 BURLAP project: https://github.com/jmacglashan/burlap
 
-The implementation uses BURLAP's `GridWorldDomain`, `GridWorldTerminalFunction`, `SimulatedEnvironment`, `QLearning`, `ValueIteration`, `GreedyQPolicy`, `PolicyUtils`, and `SimpleHashableStateFactory` APIs.
+The implementation uses BURLAP's `GridWorldDomain`, `GridWorldTerminalFunction`, `SimulatedEnvironment`, `QLearning`, `RandomFactory`, `ValueIteration`, `GreedyQPolicy`, `PolicyUtils`, and `SimpleHashableStateFactory` APIs.
