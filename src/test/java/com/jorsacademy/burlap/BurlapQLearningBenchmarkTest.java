@@ -13,9 +13,8 @@ class BurlapQLearningBenchmarkTest {
     void trainingProducesBoundedEpisodeStatistics() {
         int episodes = 20;
         int maxSteps = 100;
-
         BurlapQLearningBenchmark.TrainingResult result =
-                BurlapQLearningBenchmark.train(episodes, maxSteps);
+                BurlapQLearningBenchmark.train(episodes, maxSteps, 42L);
 
         assertEquals(episodes, result.episodeSteps().size());
         assertTrue(result.bestEpisodeSteps() >= 0);
@@ -23,6 +22,15 @@ class BurlapQLearningBenchmarkTest {
         assertFalse(Double.isNaN(result.firstWindowAverage()));
         assertFalse(Double.isNaN(result.lastWindowAverage()));
         assertTrue(result.episodeSteps().stream().allMatch(s -> s >= 0 && s <= maxSteps));
+    }
+
+    @Test
+    void sameSeedReproducesEpisodeSequence() {
+        var first = BurlapQLearningBenchmark.train(25, 150, 123456L);
+        var second = BurlapQLearningBenchmark.train(25, 150, 123456L);
+        assertEquals(first.episodeSteps(), second.episodeSteps());
+        assertEquals(first.firstWindowAverage(), second.firstWindowAverage());
+        assertEquals(first.lastWindowAverage(), second.lastWindowAverage());
     }
 
     @Test
